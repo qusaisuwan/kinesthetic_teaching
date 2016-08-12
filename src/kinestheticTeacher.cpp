@@ -41,7 +41,7 @@ void KinestheticTeacher::generateNextPositionCommand(){
 
     auto jacobian = mvKin->getJacobian();
     Eigen::MatrixXd jacobianTranspose= jacobian.transpose();
-    auto jacobianInverse= jacobian.inverse();
+   // auto jacobianInverse= jacobian.inverse();
 //    cout << jacobian << endl;
 //    cout << jacobianInverse << endl;
 //    cout << jacobianTranspose << endl;
@@ -54,16 +54,23 @@ void KinestheticTeacher::generateNextPositionCommand(){
 //    cout << jacobianTranspose << endl;
 
     double scaling=0.04;
-    Eigen::MatrixXd multiplierMatrix=capMatrix(jacobianInverse, 2.0,robotinoQueue->getJointNames().size());
+    Eigen::MatrixXd multiplierMatrix=capMatrix(jacobianTranspose, 2.0,robotinoQueue->getJointNames().size(),6);
     Eigen::MatrixXd jointSpaceDifferential = scaling * multiplierMatrix * forceVector;
+    Eigen::MatrixXd test(8,6);
 
+    for (int i=0;i < 8*6;i++){
+        test(i)=10.0;
+    }
+    cout << "test " << test << endl;
+    Eigen::MatrixXd res=capMatrix(jacobianTranspose, 2.0,robotinoQueue->getJointNames().size(),6);
+    cout << "res " << res << endl;
     // jointSpaceDifferential = jacobianTranspose * forceVector;
 
     auto jointNextState=  armadilloToStdVec(robotinoQueue->getCurrentJoints().joints);
-     jointNextState.at(0) +=jointSpaceDifferential(0);
-    for (int i=1;i< jointNextState.size()-2; ++i){
 
-        jointNextState.at(i+2) = jointNextState.at(i+2) + jointSpaceDifferential(i);
+    for (int i=0;i< jointNextState.size(); ++i){
+
+       // jointNextState.at(i) = jointNextState.at(i) + jointSpaceDifferential(i);
     }
 
     vec target = (stdToArmadilloVec(jointNextState));
@@ -82,24 +89,24 @@ void KinestheticTeacher::generateNextPositionCommand(){
 //       cout << "joint planning worked (path of length " << dcJointPlan.size() << " generated) (press key to execute it)" << endl;
 //       robotinoQueue->setNextTrajectory(dcJointPlan);
 //       robotinoQueue->synchronizeToQueue(1);
-    cout  << target << endl;
-       usleep(10000);
+   // cout  << target << endl;
+       usleep(100000);
 
-       robotinoQueue->move(target);
-     //  robotinoQueue->move(fixJointVecTemp(stdToArmadilloVec({0.0,0.0,0.0,0.5,0.5,0.0,0.5,0.5})));
+      // robotinoQueue->move(target);
 
     /* for moving with the queue!!!! */
-//    vector<double> nextJointPositions = {0.0,0.0,0.0,0.0,0.0,0.0};
-//    cout << nextJointPositions << endl;
+//    vector<double> nextJointPositions = {0.0,0.0,0.0,0.0,0.0,0.0};\
+ 
+ //JointPositions << endl\
 
     //robotinoQueue->submitNextJointMove(stdToArmadilloVec(nextJointPositions));
 
 
 }
 
-  Eigen::MatrixXd KinestheticTeacher::capMatrix(Eigen::MatrixXd input, double maxCap,int jointsNumber){//cap 6*jointsNumber matrix
+  Eigen::MatrixXd KinestheticTeacher::capMatrix(Eigen::MatrixXd input, double maxCap,int x, int y){//cap 6*jointsNumber matrix
 
-      for (int i =0;i< 6*jointsNumber;i++)
+      for (int i =0;i< x*y;i++)
           input(i)= std::isnan(input(i)) || std::isinf(input(i)) ? 0 : max(maxCap,input(i));
       return input;
       Eigen::JacobiSVD<Eigen::MatrixXd> svd(input, Eigen::ComputeThinU | Eigen::ComputeThinV);

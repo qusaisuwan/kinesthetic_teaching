@@ -30,7 +30,7 @@ std::shared_ptr<kukadu_thread> qThread;
 std::shared_ptr<std::thread> moveThread;
 bool teacherRunning;
 void sensorUpdate(std_msgs::Float64MultiArray msg);
-Eigen::MatrixXd capMatrix(Eigen::MatrixXd input, double maxCap,int jointsNumber);
+Eigen::MatrixXd capMatrix(Eigen::MatrixXd input, double maxCap,int i,int j);
 
 
 public:
