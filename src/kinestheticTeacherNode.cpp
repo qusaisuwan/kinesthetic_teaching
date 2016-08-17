@@ -21,18 +21,23 @@ std::shared_ptr<KinestheticTeacher> kTeacher;
 
 int main(int argc, char** args){
 
-
     ros::init(argc, args, "kinesthetic_teaching_node");
     ros::NodeHandle node; sleep(1);
-    ros::AsyncSpinner spinner(6); spinner.start();
+    ros::AsyncSpinner spinner(7); spinner.start();
 
 
     kTeacher= std::shared_ptr<KinestheticTeacher> (new KinestheticTeacher(node,(char*)SENSORTOPIC));
     kTeacher->init();
     kTeacher->runArm();
 
-    std::cout << "Press any key to stop!" << std::endl;
 
+//    while(1){
+    //        kTeacher->printFilteredSensorVal();
+    //        usleep(100000);
+    //    }
+    cout << "press" << endl;
+    sleep(10);
+    kTeacher->generateNextPositionCommand();
     getchar();
     kTeacher->stopArm();
     std::cout << "stopped!" << std::endl;

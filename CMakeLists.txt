@@ -24,6 +24,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   kukadu
+  uibk_robot_driver
 )
 
 ## System dependencies are found with CMake's conventions
@@ -209,4 +210,4 @@ include_directories(
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
 FILE(GLOB_RECURSE LibFiles "*.h*")
-add_custom_target(headers SOURCES ${LibFiles})
+add_custom_target(myheaders SOURCES ${LibFiles})
