@@ -137,6 +137,7 @@ include_directories(
 ## Declare a C++ library
  add_library(kinesthetic_teaching
    src/kinestheticTeacher.cpp
+   src/Filter.cpp
  )
 
 ## Add cmake target dependencies of the library

@@ -18,7 +18,7 @@
 using namespace std;
 using namespace arma;
 using namespace kukadu;
-
+using namespace UIBK_Teaching;
 std::shared_ptr<KinestheticTeacher> kTeacher;
 
 int main(int argc, char** args){
