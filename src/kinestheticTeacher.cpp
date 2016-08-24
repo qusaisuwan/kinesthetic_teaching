@@ -1,5 +1,5 @@
 #include "kinestheticTeacher.h"
-#include "Eigen/Jacobi"
+//#include "Eigen/Jacobi"
 
 using namespace std;
 using namespace arma;
@@ -59,7 +59,7 @@ arma::vec KinestheticTeacher::getNextDifferentialCommand(Eigen::MatrixXd jacobia
     }
     Eigen::VectorXd forceVector = stdToEigenVec(scaleForcesTorques(sensorReading));
     std::vector<double> jacobianMethodDifferential;
-
+    //Eigen::JacobiSVD<Eigen::MatrixXd> svd(input, Eigen::ComputeThinU | Eigen::ComputeThinV);
     switch(myType){
     case JACOBIAN:
         jacobianMethodDifferential =  eigenToStdVec(jacobian.transpose() * forceVector);
@@ -67,7 +67,7 @@ arma::vec KinestheticTeacher::getNextDifferentialCommand(Eigen::MatrixXd jacobia
     case IK:
         jacobianMethodDifferential =  eigenToStdVec(jacobian.transpose() * forceVector);
     }
-    //Eigen::JacobiSVD<Eigen::MatrixXd> svd(input, Eigen::ComputeThinU | Eigen::ComputeThinV);
+
     auto scaledDiffMovement= scaleJointCommands(jacobianMethodDifferential);
 
     return stdToArmadilloVec(capVec(scaledDiffMovement,MAXIMUM_JOINT_STEP));
