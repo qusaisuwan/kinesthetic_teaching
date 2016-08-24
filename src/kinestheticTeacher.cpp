@@ -1,4 +1,4 @@
-﻿#include "kinestheticTeacher.h"
+#include "kinestheticTeacher.h"
 #include "Eigen/Jacobi"
 
 using namespace std;
@@ -10,16 +10,7 @@ namespace UIBK_Teaching{
 KinestheticTeacher::KinestheticTeacher(ros::NodeHandle &node,char *sensorTopic){//(ros::NodeHandle &node)
     myNode =  std::shared_ptr<ros::NodeHandle> (&node);
     teacherRunning=false;
-    filtersRunning=false;
-    firstReading=true;
-    projectedFilteredReadings=DCFilter1Memory=DCFilter2Memory=smoothingFilterMemory={0.0,0.0,0.0,0.0,0.0,0.0};
-    limitsFilterMemory = {std::pair<double,double>(-1.0 * FORCE_MIN_LIMIT,1.0 * FORCE_MIN_LIMIT),
-                          std::pair<double,double>(-1.0 * FORCE_MIN_LIMIT,1.0 * FORCE_MIN_LIMIT),
-                          std::pair<double,double>(-1.0 * FORCE_MIN_LIMIT,1.0 * FORCE_MIN_LIMIT),
-                          std::pair<double,double>(-1.0 * TORQUE_MIN_LIMIT,1.0 * TORQUE_MIN_LIMIT),
-                          std::pair<double,double>(-1.0 * TORQUE_MIN_LIMIT,1.0 * TORQUE_MIN_LIMIT),
-                          std::pair<double,double>(-1.0 * TORQUE_MIN_LIMIT,1.0 * TORQUE_MIN_LIMIT)};
-    //maxFilterMemory={0.0
+    filterRunning=false;
     // Kukadu
 
     robotinoQueue = KUKADU_SHARED_PTR<KukieControlQueue>(new KukieControlQueue("real", "robotino", *myNode));
@@ -42,9 +33,7 @@ void KinestheticTeacher::init(){
     }
 
     moveThread =std::make_shared<std::thread>(&KinestheticTeacher::teachingThreadHandler, this);
-    filterSmoothingThread =std::make_shared<std::thread>(&KinestheticTeacher::filterSmoothingThreadHandler, this);
-    filterDC1Thread =std::make_shared<std::thread>(&KinestheticTeacher::filterDC1ThreadHandler, this);
-    filterDC2Thread =std::make_shared<std::thread>(&KinestheticTeacher::filterDC2ThreadHandler, this);
+    filterThread =std::make_shared<std::thread>(&KinestheticTeacher::filterHandler, this);
 }
 
 
@@ -62,40 +51,65 @@ void KinestheticTeacher::generateNextCommand(){
 arma::vec KinestheticTeacher::getNextDifferentialCommand(Eigen::MatrixXd jacobian, ControllerType myType){
 
 
-    std::vector<double> sensorReading=getProcessedReading();//{0.0,0.0,-0.2,0.0,0.0,0.0};
-    auto numberOfJoints=jacobian.cols();
+    std::vector<double> sensorReading= myFilter.getProcessedReading();
     auto numberOfCartesianFTs=jacobian.rows();
     if (numberOfCartesianFTs != sensorReading.size()){
         cout << "Problem in sensor readings vector size" << endl;
         return stdToArmadilloVec({0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0});
     }
+    Eigen::VectorXd forceVector = stdToEigenVec(scaleForcesTorques(sensorReading));
+    std::vector<double> jacobianMethodDifferential;
 
-    Eigen::VectorXd forceVector(numberOfCartesianFTs);
-    auto torqueIndexStart=numberOfCartesianFTs/2;
-    //weigh force and torque readings
-    for (int i=0;i< torqueIndexStart; ++i)
-        forceVector(i)= sensorReading.at(i)*FORCES_MOVING_MULTIPLIER;
-    for (int i=torqueIndexStart;i< numberOfCartesianFTs; ++i)
-        forceVector(i)= sensorReading.at(i)*TORQUES_MOVING_MULTIPLIER;
-    forceVector(2)*=Z_FORCE_MOVING_MULTIPLIER;
-    Eigen::MatrixXd jacobianMethodDifferential =  jacobian.transpose() * forceVector;
+    switch(myType){
+    case JACOBIAN:
+        jacobianMethodDifferential =  eigenToStdVec(jacobian.transpose() * forceVector);
 
-
-
-    //weigh base and arm movements
-    std::vector<double> scaledDiffMovement;
-    scaledDiffMovement.push_back(jacobianMethodDifferential(0)*BASE_XY_MOVING_MULTIPLIER);
-    scaledDiffMovement.push_back(jacobianMethodDifferential(1)*BASE_XY_MOVING_MULTIPLIER);
-    scaledDiffMovement.push_back(jacobianMethodDifferential(2)*BASE_Z_MOVING_MULTIPLIER);
-    for (auto i=3; i<numberOfJoints;i++)
-        scaledDiffMovement.push_back(jacobianMethodDifferential(i)*ARM_ALLJOINTS_MOVING_MULTIPLIER);
+    case IK:
+        jacobianMethodDifferential =  eigenToStdVec(jacobian.transpose() * forceVector);
+    }
     //Eigen::JacobiSVD<Eigen::MatrixXd> svd(input, Eigen::ComputeThinU | Eigen::ComputeThinV);
-
+    auto scaledDiffMovement= scaleJointCommands(jacobianMethodDifferential);
 
     return stdToArmadilloVec(capVec(scaledDiffMovement,MAXIMUM_JOINT_STEP));
 
 }
 
+std::vector<double> KinestheticTeacher::scaleForcesTorques(std::vector<double> myVec){
+        auto torqueIndexStart=myVec.size()/2;
+        //weigh force and torque readings
+        for (int i=0;i< torqueIndexStart; ++i)
+            myVec.at(i) *= FORCES_MOVING_MULTIPLIER;
+        for (int i=torqueIndexStart;i< myVec.size(); ++i)
+            myVec.at(i) *= TORQUES_MOVING_MULTIPLIER;
+        myVec.at(2)*=Z_FORCE_MOVING_MULTIPLIER;
+        return myVec;
+}
+
+std::vector<double> KinestheticTeacher::scaleJointCommands(std::vector<double> myVec){
+    //weigh base and arm movements
+    myVec.at(0)*= BASE_XY_MOVING_MULTIPLIER;
+    myVec.at(1)*=BASE_XY_MOVING_MULTIPLIER;
+    myVec.at(2)*=BASE_Z_MOVING_MULTIPLIER;
+    for (auto i=3; i< myVec.size();i++)
+        myVec.at(i)*=ARM_ALLJOINTS_MOVING_MULTIPLIER;
+    return myVec;
+}
+Eigen::VectorXd KinestheticTeacher::stdToEigenVec(std::vector<double> myVec){
+    int n = myVec.size();
+    Eigen::VectorXd temp(n);
+    for (int i=0;i< n; ++i)
+        temp(i)= myVec.at(i);
+    return temp;
+}
+
+std::vector<double> KinestheticTeacher::eigenToStdVec(Eigen::VectorXd myVec){
+    int n = myVec.rows();
+    std::vector<double> temp;
+    for (int i=0;i< n; ++i)
+        temp.push_back(myVec(i));
+    return temp;
+
+}
 bool KinestheticTeacher::isDifferentialCommandSafe(arma::vec diffCommand,arma::vec currentJointStates){
     bool okay=true;
     int checkTimesAhead=3;
@@ -110,12 +124,12 @@ bool KinestheticTeacher::isColliding(std::vector<double> jointStates){
     return mvKin->isColliding(stdToArmadilloVec(jointStates),pose);
 }
 
-void KinestheticTeacher::ptp(std::vector<double> target){
+//void KinestheticTeacher::ptp(std::vector<double> target){
 
-    auto jointPlan = mvKin->planJointTrajectory({robotinoQueue->getCurrentJoints().joints,stdToArmadilloVec(target)});
-    robotinoQueue->setNextTrajectory(jointPlan);
-    robotinoQueue->synchronizeToQueue(1);
-}
+//    auto jointPlan = mvKin->planJointTrajectory({robotinoQueue->getCurrentJoints().joints,stdToArmadilloVec(target)});
+//    robotinoQueue->setNextTrajectory(jointPlan);
+//    robotinoQueue->synchronizeToQueue(1);
+//}
 
 
 std::vector<double> KinestheticTeacher::capVec(std::vector<double> input, double maxCap){
@@ -140,31 +154,47 @@ void KinestheticTeacher::teachingThreadHandler(){
     ros::Rate myRate(50);
     while(1){
         if (teacherRunning){
-
+            myFilter.printFilteredSensorVal();
             generateNextCommand();
-            printFilteredSensorVal();
+
         }
+
         myRate.sleep();
     }
 
 }
 
 
+void KinestheticTeacher::filterHandler(){
+    ros::Rate myRate(FILTER_FREQ);
+    double timeStamp=0;
+    while(1){
+        if (filterRunning){
+            if (sensorVal.at(6) != timeStamp){ // new reading
+                sensorMutex.lock();
+                auto temp=sensorVal;
+                sensorMutex.unlock();
+                temp.pop_back();
+                myFilter.filterUpdate(temp,mvKin->computeFk(armadilloToStdVec(robotinoQueue->getCurrentJoints().joints)));
+            }
+
+
+        }
+        myRate.sleep();
+    }
+
+}
 
 void KinestheticTeacher::sensorUpdate(std_msgs::Float64MultiArray msg){
 
     sensorMutex.lock();
 
-    if (msg.data.size() ==7) //3 forces, 3 torques and timestamp
-    {
+    if (msg.data.size() ==7) {// 3 forces, 3 torques and timestamp
         sensorVal=msg.data;
-        sensorVal.erase(sensorVal.end()-1); //erase timestamp
         if (firstReading){
-            DCFilter1Memory=sensorVal;
+            filterRunning=true;
             firstReading=false;
-            filtersRunning=true;
         }
-
     }
     else
         cout << "wrong vector size from FT sensor" << endl;
@@ -176,9 +206,7 @@ void KinestheticTeacher::stopArm(){
     teacherRunning=false;
     robotinoQueue->stopQueue();
     moveThread->join();
-    filterSmoothingThread->join();
-    filterDC1Thread->join();
-    filterDC2Thread->join();
+    filterThread->join();
     qThread->join();
 }
 }

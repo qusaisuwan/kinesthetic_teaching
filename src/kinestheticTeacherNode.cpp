@@ -57,8 +57,8 @@ int main(int argc, char** args){
 //    cout << kTeacher->isColliding(stdToArmadilloVec({0.0,0.0,1.8,2.8,0.0,0.0,1.0,0.0})) << endl;
 //    cout << kTeacher->isColliding(stdToArmadilloVec({0.0,0.0,1.8,-2.8,0.0,1.0,0.0,0.0})) << endl;
 //    cout << kTeacher->isColliding(stdToArmadilloVec({0.0,0.0,1.8,2.0,3.0,4.0,0.0,0.0})) << endl;
-    getchar();
-    cout << "press" << endl;
+//    getchar();
+//    cout << "press" << endl;
     //    sleep(20);
     //    kTeacher->generateNextPositionCommand();
     getchar();
