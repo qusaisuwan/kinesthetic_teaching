@@ -27,7 +27,7 @@ void Filter::filterUpdate(std::vector<double> current,geometry_msgs::Pose curren
      lowpassFilter(DCFilter1Memory,current,DC_FILTER1);
      auto valuesAC=removeBias(current,DCFilter1Memory);
 
-     // Auto-scaling
+     // Auto-scaling limits finding
      if (cnt < 100){
          for(auto i=0;i<valuesAC.size();i++)
              newDataSet.at(i).push_back(valuesAC.at(i));
@@ -41,12 +41,12 @@ void Filter::filterUpdate(std::vector<double> current,geometry_msgs::Pose curren
      }
 
      lowpassFilter(smoothingFilterMemory,(valuesAC),SMOOTHING);
+     auto scaledReadings=scaleReadings(smoothingFilterMemory,true);
+     auto projectedFilteredReadings=projectReadings(scaledReadings,currentPose);
 
-     auto projectedFilteredReadings=projectReadings(smoothingFilterMemory,currentPose);
+     lowpassFilter(DCFilter2Memory,scaledReadings,DC_FILTER2);
 
-     lowpassFilter(DCFilter2Memory,smoothingFilterMemory,DC_FILTER2);
-
-     auto temp= scaleAndLimitReadings(removeBias(projectedFilteredReadings,DCFilter2Memory));
+     auto temp= limitandThresholdReadings(removeBias(projectedFilteredReadings,DCFilter2Memory));
 
      readingMutex.lock();
      processedFilterReadings = temp;
@@ -74,17 +74,34 @@ void Filter::printFilteredSensorVal(){
 }
 
 
-std::vector<double> Filter::scaleAndLimitReadings(std::vector<double> msg){
+std::vector<double> Filter::scaleReadings(std::vector<double> msg, bool coupleLimits){
     int torquesStartingIndex=limitsFilterMemory.size()/2;
     double forceMin=FORCE_MIN_LIMIT;
     double torqueMin=TORQUE_MIN_LIMIT;
+    if (!coupleLimits){
+        for (int i=0;i<torquesStartingIndex;i++)
+            msg.at(i)= sign(msg.at(i)) == 1 ? msg.at(i)/max(forceMin,fabs(limitsFilterMemory.at(i).second)) : msg.at(i)/max(forceMin,fabs(limitsFilterMemory.at(i).first));
 
-    for (int i=0;i<torquesStartingIndex;i++)
-        msg.at(i)= min(1.0,max(-1.0,(sign(msg.at(i)) == 1 ? msg.at(i)/max(forceMin,fabs(limitsFilterMemory.at(i).second)) : msg.at(i)/max(forceMin,fabs(limitsFilterMemory.at(i).first)))));
+        for (int i=torquesStartingIndex ;i<limitsFilterMemory.size();i++)
+            msg.at(i)= sign(msg.at(i)) == 1 ? msg.at(i)/max(torqueMin,fabs(limitsFilterMemory.at(i).second)) : msg.at(i)/max(torqueMin,fabs(limitsFilterMemory.at(i).first));
+    }
+    else{
 
-    for (int i=torquesStartingIndex ;i<limitsFilterMemory.size();i++)
-        msg.at(i)= min(1.0,max(-1.0,(sign(msg.at(i)) == 1 ? msg.at(i)/max(torqueMin,fabs(limitsFilterMemory.at(i).second)) : msg.at(i)/max(torqueMin,fabs(limitsFilterMemory.at(i).first)))));
+        for (int i=0;i<torquesStartingIndex;i++)
+            msg.at(i)=  msg.at(i)/max(forceMin,max(fabs(limitsFilterMemory.at(i).first),fabs(limitsFilterMemory.at(i).second))) ;
 
+        for (int i=torquesStartingIndex ;i<limitsFilterMemory.size();i++)
+            msg.at(i)=  msg.at(i)/max(torqueMin,max(fabs(limitsFilterMemory.at(i).first),fabs(limitsFilterMemory.at(i).second)));
+
+    }
+
+    return msg;
+}
+
+std::vector<double> Filter::limitandThresholdReadings(std::vector<double> msg){
+
+    for (int i=0;i<msg.size();i++)
+        msg.at(i)= fabs(msg.at(i)) < MIN_THRESHOLD ? 0.0 : min(1.0,max(-1.0,msg.at(i)));
     return msg;
 }
 

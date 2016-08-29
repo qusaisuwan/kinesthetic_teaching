@@ -31,7 +31,7 @@ int main(int argc, char** args){
     kTeacher= std::shared_ptr<KinestheticTeacher> (new KinestheticTeacher(node,(char*)SENSORTOPIC));
     kTeacher->init();
     cout << "apply some torques and forces for calibration" << endl;
-    getchar();
+    //getchar();
 
     kTeacher->runArm();
 //    getchar();
@@ -61,6 +61,10 @@ int main(int argc, char** args){
 //    cout << "press" << endl;
     //    sleep(20);
     //    kTeacher->generateNextPositionCommand();
+    //getchar();
+    cout << "press to play" << endl;
+    getchar();
+    kTeacher->play();
     getchar();
     kTeacher->stopArm();
     std::cout << "stopped!" << std::endl;
