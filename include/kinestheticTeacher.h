@@ -82,11 +82,13 @@ public:
 
     KinestheticTeacher(ros::NodeHandle &node,char *sensorTopic);
     void init();
-    void runArm();
-    void record();
+    void startTeaching();
+    void stopTeaching();
+    void startRecording();
+    void stopRecording();
     void play();
     void stopArm();
-//    void ptp(std::vector<double> target); //remove
+    void ptp(std::vector<double> target); //remove
 
 };
 }

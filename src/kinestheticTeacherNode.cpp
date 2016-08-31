@@ -31,43 +31,28 @@ int main(int argc, char** args){
     kTeacher= std::shared_ptr<KinestheticTeacher> (new KinestheticTeacher(node,(char*)SENSORTOPIC));
     kTeacher->init();
     cout << "apply some torques and forces for calibration" << endl;
-    //getchar();
+    getchar();
 
-    kTeacher->runArm();
-//    getchar();
-//    kTeacher->ptp({0.0,0.0,0.0,0.0,0.0,0.,0.0,0.0});
-//    cout << "press any key to move " << endl;
-//    getchar();
-//    kTeacher->ptp({0.0,0.0,0.0,0.0,0.0,0.,0.0,1.57});
-//    cout << "press any key to move " << endl;
-//    getchar();
-//    kTeacher->ptp({0.0,0.0,0.3,0.3,0.0,0.0,1.57,0.0});
-//    cout << "press any key to move " << endl;
-//    getchar();
-//    kTeacher->ptp({0.0,0.0,0.5,0.0,0.0,0.8,0.0,0.8});
-//    cout << "press any key to move " << endl;
-//    getchar();
-//    kTeacher->ptp({0.0,0.0,0.0,0.4,0.0,-0.3,-1.0,-0.7});
-//    while(1){
-    //        kTeacher->printFilteredSensorVal();
-    //        usleep(100000);
-    //    }
-//    cout << kTeacher->isDiferentialCommandSafe(stdToArmadilloVec({0.0,0.0,0.0,0.0,1.0,0.0,0.0,1.0}),stdToArmadilloVec({0.0,0.0,0.0,0.0,1.0,0.0,0.0,1.0})) << endl;
-//    cout << kTeacher->isColliding(stdToArmadilloVec({0.0,0.0,1.8,0.0,0.0,0.0,1.0,0.0})) << endl;
-//    cout << kTeacher->isColliding(stdToArmadilloVec({0.0,0.0,1.8,2.8,0.0,0.0,1.0,0.0})) << endl;
-//    cout << kTeacher->isColliding(stdToArmadilloVec({0.0,0.0,1.8,-2.8,0.0,1.0,0.0,0.0})) << endl;
-//    cout << kTeacher->isColliding(stdToArmadilloVec({0.0,0.0,1.8,2.0,3.0,4.0,0.0,0.0})) << endl;
-//    getchar();
-//    cout << "press" << endl;
-    //    sleep(20);
-    //    kTeacher->generateNextPositionCommand();
-    //getchar();
+    kTeacher->startTeaching();
+    cout << "press any key to start recording" << endl;
+    getchar();
+    kTeacher->startRecording();
+
+    cout << "press any key to stop recording" << endl;
+    getchar();
+    kTeacher->stopRecording();
+
     cout << "press to play" << endl;
     getchar();
+    kTeacher->stopTeaching();
+    cout << "playing" << endl;
     kTeacher->play();
+
+    cout << "press to end" << endl;
     getchar();
-    kTeacher->stopArm();
     std::cout << "stopped!" << std::endl;
+    kTeacher->stopArm();
+
 
 
 

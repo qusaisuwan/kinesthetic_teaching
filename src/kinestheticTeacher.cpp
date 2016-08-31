@@ -19,10 +19,8 @@ KinestheticTeacher::KinestheticTeacher(ros::NodeHandle &node,char *sensorTopic){
     mvKin = std::make_shared<MoveItKinematics>(robotinoQueue, node, "robotino", controlledJoints, "arm_link5");
     robotinoQueue->setKinematics(mvKin);
     robotinoQueue->setPathPlanner(mvKin);
-    store = std::shared_ptr<kukadu::SensorStorage>(new kukadu::SensorStorage({robotinoQueue}, std::vector<KUKADU_SHARED_PTR<GenericHand> >(), 1000));
-    store->setExportMode(SensorStorage::STORE_TIME | SensorStorage::STORE_RBT_CART_POS | SensorStorage::STORE_RBT_JNT_POS);
-    deleteDirectory(recordingPath);
-    recordingThread= store->startDataStorage(recordingPath);
+    store = std::shared_ptr<kukadu::SensorStorage>(new kukadu::SensorStorage({robotinoQueue}, std::vector<KUKADU_SHARED_PTR<GenericHand> >(), 400));
+
 
     sensorUpdateSub = myNode->subscribe(sensorTopic, 1, &KinestheticTeacher::sensorUpdate,this);
 }
@@ -44,7 +42,7 @@ void KinestheticTeacher::init(){
 
 void KinestheticTeacher::generateNextCommand(){
 
-    record();
+
 
     auto currentJointState=robotinoQueue->getCurrentJoints().joints;
     auto diff = getNextDifferentialCommand(mvKin->getJacobian(),currentJointState,JACOBIAN);
@@ -55,18 +53,39 @@ void KinestheticTeacher::generateNextCommand(){
 
 }
 
-void KinestheticTeacher::record(){
-    //cout << robotinoQueue->getJointNames().size() << endl;
+void KinestheticTeacher::startRecording(){
 
+    store->setExportMode(SensorStorage::STORE_TIME | SensorStorage::STORE_RBT_CART_POS | SensorStorage::STORE_RBT_JNT_POS);
+    deleteDirectory(recordingPath);
+    recordingThread= store->startDataStorage(recordingPath);
 
 }
 
-void KinestheticTeacher::play(){
+void KinestheticTeacher::stopRecording(){
+
     store->stopDataStorage();
+}
+
+void KinestheticTeacher::play(){
+
     std::shared_ptr<SensorData> res= kukadu::SensorStorage::readStorage(robotinoQueue,recordingPath + "/kuka_lwr_real_robotino_0");
-    cout << res->getTimes().size() << endl;
+    std::vector<arma::vec> jointPlan;
 
+    for (int i =0;i<res->getTimes().size();i++){
+        auto temp=armadilloToStdVec(res->getJointPosRow(i));
+        temp.push_back(0.0);
+        jointPlan.push_back(stdToArmadilloVec(temp));
 
+    }
+     ptp(armadilloToStdVec(jointPlan.front()));
+//   cout << jointPlan.front()<< endl;
+
+    auto myPlan=mvKin->planJointTrajectory(jointPlan);
+//    for (auto & curr: myPlan)
+//        cout << curr << endl;
+
+     robotinoQueue->setNextTrajectory(jointPlan);
+     robotinoQueue->synchronizeToQueue(1);
 }
 arma::vec KinestheticTeacher::getNextDifferentialCommand(Eigen::MatrixXd jacobian,arma::vec currentJointState, ControllerType myType){
 
@@ -229,12 +248,12 @@ bool KinestheticTeacher::isColliding(std::vector<double> jointStates){
     return mvKin->isColliding(stdToArmadilloVec(jointStates),pose);
 }
 
-//void KinestheticTeacher::ptp(std::vector<double> target){
+void KinestheticTeacher::ptp(std::vector<double> target){
 
-//    auto jointPlan = mvKin->planJointTrajectory({robotinoQueue->getCurrentJoints().joints,stdToArmadilloVec(target)});
-//    robotinoQueue->setNextTrajectory(jointPlan);
-//    robotinoQueue->synchronizeToQueue(1);
-//}
+    auto jointPlan = mvKin->planJointTrajectory({robotinoQueue->getCurrentJoints().joints,stdToArmadilloVec(target)});
+    robotinoQueue->setNextTrajectory(jointPlan);
+    robotinoQueue->synchronizeToQueue(1);
+}
 
 
 std::vector<double> KinestheticTeacher::capVec(std::vector<double> input, double maxCap){
@@ -251,8 +270,12 @@ int KinestheticTeacher::sign(double x){
 
 
 
-void KinestheticTeacher::runArm(){
+void KinestheticTeacher::startTeaching(){
     teacherRunning=true;
+}
+
+void KinestheticTeacher::stopTeaching(){
+    teacherRunning=false;
 }
 
 void KinestheticTeacher::teachingThreadHandler(){
