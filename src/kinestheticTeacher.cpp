@@ -7,7 +7,7 @@ using namespace kukadu;
 
 namespace UIBK_Teaching{
 
-KinestheticTeacher::KinestheticTeacher(ros::NodeHandle &node,char *sensorTopic){//(ros::NodeHandle &node)
+KinestheticTeacherUIBK::KinestheticTeacherUIBK(ros::NodeHandle &node,char *sensorTopic){//(ros::NodeHandle &node)
     myNode =  std::shared_ptr<ros::NodeHandle> (&node);
     teacherRunning=false;
     filterRunning=false;
@@ -22,11 +22,11 @@ KinestheticTeacher::KinestheticTeacher(ros::NodeHandle &node,char *sensorTopic){
     store = std::shared_ptr<kukadu::SensorStorage>(new kukadu::SensorStorage({robotinoQueue}, std::vector<KUKADU_SHARED_PTR<GenericHand> >(), 400));
 
 
-    sensorUpdateSub = myNode->subscribe(sensorTopic, 1, &KinestheticTeacher::sensorUpdate,this);
+    sensorUpdateSub = myNode->subscribe(sensorTopic, 1, &KinestheticTeacherUIBK::sensorUpdate,this);
 }
 
 
-void KinestheticTeacher::init(){
+void KinestheticTeacherUIBK::init(){
 
 
     qThread = robotinoQueue->startQueue();
@@ -35,12 +35,12 @@ void KinestheticTeacher::init(){
         robotinoQueue->switchMode(KukieControlQueue::KUKA_JNT_POS_MODE);
     }
 
-    moveThread =std::make_shared<std::thread>(&KinestheticTeacher::teachingThreadHandler, this);
-    filterThread =std::make_shared<std::thread>(&KinestheticTeacher::filterHandler, this);
+    moveThread =std::make_shared<std::thread>(&KinestheticTeacherUIBK::teachingThreadHandler, this);
+    filterThread =std::make_shared<std::thread>(&KinestheticTeacherUIBK::filterHandler, this);
 }
 
 
-void KinestheticTeacher::generateNextCommand(){
+void KinestheticTeacherUIBK::generateNextCommand(){
 
 
 
@@ -53,7 +53,7 @@ void KinestheticTeacher::generateNextCommand(){
 
 }
 
-void KinestheticTeacher::startRecording(){
+void KinestheticTeacherUIBK::startRecording(){
 
     store->setExportMode(SensorStorage::STORE_TIME | SensorStorage::STORE_RBT_CART_POS | SensorStorage::STORE_RBT_JNT_POS);
     deleteDirectory(recordingPath);
@@ -61,19 +61,18 @@ void KinestheticTeacher::startRecording(){
 
 }
 
-void KinestheticTeacher::stopRecording(){
+void KinestheticTeacherUIBK::stopRecording(){
 
     store->stopDataStorage();
 }
 
-void KinestheticTeacher::play(){
+void KinestheticTeacherUIBK::play(){
 
     std::shared_ptr<SensorData> res= kukadu::SensorStorage::readStorage(robotinoQueue,recordingPath + "/kuka_lwr_real_robotino_0");
     std::vector<arma::vec> jointPlan;
 
     for (int i =0;i<res->getTimes().size();i++){
         auto temp=armadilloToStdVec(res->getJointPosRow(i));
-        temp.push_back(0.0);
         jointPlan.push_back(stdToArmadilloVec(temp));
 
     }
@@ -87,7 +86,7 @@ void KinestheticTeacher::play(){
      robotinoQueue->setNextTrajectory(jointPlan);
      robotinoQueue->synchronizeToQueue(1);
 }
-arma::vec KinestheticTeacher::getNextDifferentialCommand(Eigen::MatrixXd jacobian,arma::vec currentJointState, ControllerType myType){
+arma::vec KinestheticTeacherUIBK::getNextDifferentialCommand(Eigen::MatrixXd jacobian,arma::vec currentJointState, ControllerType myType){
 
 
     std::vector<double> sensorReading= myFilter.getProcessedReading();
@@ -191,7 +190,7 @@ arma::vec KinestheticTeacher::getNextDifferentialCommand(Eigen::MatrixXd jacobia
 
 }
 
-bool KinestheticTeacher::isBigJump(std::vector<double> myVec){
+bool KinestheticTeacherUIBK::isBigJump(std::vector<double> myVec){
     bool bigJump =false;
     for (auto element: myVec)
         if (element > MAX_JOINT_MOVEMENT_ALLOWED_FOR_IK)
@@ -199,7 +198,7 @@ bool KinestheticTeacher::isBigJump(std::vector<double> myVec){
     return bigJump;
 }
 
-std::vector<double> KinestheticTeacher::scaleForcesTorques(std::vector<double> myVec){
+std::vector<double> KinestheticTeacherUIBK::scaleForcesTorques(std::vector<double> myVec){
     auto torqueIndexStart=myVec.size()/2;
     //weigh force and torque readings
     for (int i=0;i< torqueIndexStart; ++i)
@@ -209,7 +208,7 @@ std::vector<double> KinestheticTeacher::scaleForcesTorques(std::vector<double> m
     return myVec;
 }
 
-std::vector<double> KinestheticTeacher::scaleJointCommands(std::vector<double> myVec){
+std::vector<double> KinestheticTeacherUIBK::scaleJointCommands(std::vector<double> myVec){
     //weigh base and arm movements
     myVec.at(0)*= BASE_XY_MOVING_MULTIPLIER;
     myVec.at(1)*=BASE_XY_MOVING_MULTIPLIER;
@@ -218,7 +217,7 @@ std::vector<double> KinestheticTeacher::scaleJointCommands(std::vector<double> m
         myVec.at(i)*=ARM_ALLJOINTS_MOVING_MULTIPLIER;
     return myVec;
 }
-Eigen::VectorXd KinestheticTeacher::stdToEigenVec(std::vector<double> myVec){
+Eigen::VectorXd KinestheticTeacherUIBK::stdToEigenVec(std::vector<double> myVec){
     int n = myVec.size();
     Eigen::VectorXd temp(n);
     for (int i=0;i< n; ++i)
@@ -226,7 +225,7 @@ Eigen::VectorXd KinestheticTeacher::stdToEigenVec(std::vector<double> myVec){
     return temp;
 }
 
-std::vector<double> KinestheticTeacher::eigenToStdVec(Eigen::VectorXd myVec){
+std::vector<double> KinestheticTeacherUIBK::eigenToStdVec(Eigen::VectorXd myVec){
     int n = myVec.rows();
     std::vector<double> temp;
     for (int i=0;i< n; ++i)
@@ -234,7 +233,7 @@ std::vector<double> KinestheticTeacher::eigenToStdVec(Eigen::VectorXd myVec){
     return temp;
 
 }
-bool KinestheticTeacher::isDifferentialCommandSafe(arma::vec diffCommand,arma::vec currentJointStates){
+bool KinestheticTeacherUIBK::isDifferentialCommandSafe(arma::vec diffCommand,arma::vec currentJointStates){
     bool okay=true;
     int checkTimesAhead=3;
     for (auto i = 1;i<=checkTimesAhead;i++)
@@ -243,12 +242,12 @@ bool KinestheticTeacher::isDifferentialCommandSafe(arma::vec diffCommand,arma::v
     return okay;
 }
 
-bool KinestheticTeacher::isColliding(std::vector<double> jointStates){
+bool KinestheticTeacherUIBK::isColliding(std::vector<double> jointStates){
     auto pose = mvKin->computeFk(jointStates);
     return mvKin->isColliding(stdToArmadilloVec(jointStates),pose);
 }
 
-void KinestheticTeacher::ptp(std::vector<double> target){
+void KinestheticTeacherUIBK::ptp(std::vector<double> target){
 
     auto jointPlan = mvKin->planJointTrajectory({robotinoQueue->getCurrentJoints().joints,stdToArmadilloVec(target)});
     robotinoQueue->setNextTrajectory(jointPlan);
@@ -256,7 +255,7 @@ void KinestheticTeacher::ptp(std::vector<double> target){
 }
 
 
-std::vector<double> KinestheticTeacher::capVec(std::vector<double> input, double maxCap){
+std::vector<double> KinestheticTeacherUIBK::capVec(std::vector<double> input, double maxCap){
 
     for (int i =0;i< input.size();i++)
         input.at(i)= std::isnan(input.at(i)) || std::isinf(input.at(i)) ? 0.0 : sign(input.at(i)) * min(maxCap,sign(input.at(i)) * input.at(i));
@@ -264,21 +263,21 @@ std::vector<double> KinestheticTeacher::capVec(std::vector<double> input, double
 
 }
 
-int KinestheticTeacher::sign(double x){
+int KinestheticTeacherUIBK::sign(double x){
     return (x>=0.0) ? 1: -1;
 }
 
 
 
-void KinestheticTeacher::startTeaching(){
+void KinestheticTeacherUIBK::startTeaching(){
     teacherRunning=true;
 }
 
-void KinestheticTeacher::stopTeaching(){
+void KinestheticTeacherUIBK::stopTeaching(){
     teacherRunning=false;
 }
 
-void KinestheticTeacher::teachingThreadHandler(){
+void KinestheticTeacherUIBK::teachingThreadHandler(){
     ros::Rate myRate(50);
     while(1){
         if (teacherRunning){
@@ -293,7 +292,7 @@ void KinestheticTeacher::teachingThreadHandler(){
 }
 
 
-void KinestheticTeacher::filterHandler(){
+void KinestheticTeacherUIBK::filterHandler(){
     ros::Rate myRate(FILTER_FREQ);
     double timeStamp=0;
     while(1){
@@ -313,7 +312,7 @@ void KinestheticTeacher::filterHandler(){
 
 }
 
-void KinestheticTeacher::sensorUpdate(std_msgs::Float64MultiArray msg){
+void KinestheticTeacherUIBK::sensorUpdate(std_msgs::Float64MultiArray msg){
 
     sensorMutex.lock();
 
@@ -330,7 +329,7 @@ void KinestheticTeacher::sensorUpdate(std_msgs::Float64MultiArray msg){
 }
 
 
-void KinestheticTeacher::stopArm(){
+void KinestheticTeacherUIBK::stopArm(){
     teacherRunning=false;
     robotinoQueue->stopQueue();
     moveThread->join();

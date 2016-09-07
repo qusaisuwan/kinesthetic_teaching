@@ -4,7 +4,9 @@
 
 #include <mutex>
 #include <std_msgs/Float64MultiArray.h>
-#include <kukadu/kukadu.hpp>
+#include <kukadu/robot/arm/kukiecontrolqueue.hpp>
+#include <kukadu/kinematics/moveitkinematics.hpp>
+#include <kukadu/robot/sensorstorage.hpp>
 #include <cmath>
 #include <eigen_conversions/eigen_msg.h>
 #include <iostream>
@@ -18,7 +20,7 @@
 namespace UIBK_Teaching
 {
 
-class KinestheticTeacher{
+class KinestheticTeacherUIBK{
 
     static auto constexpr  FILTER_FREQ = 50.0;
 
@@ -80,7 +82,7 @@ class KinestheticTeacher{
 
 public:
 
-    KinestheticTeacher(ros::NodeHandle &node,char *sensorTopic);
+    KinestheticTeacherUIBK(ros::NodeHandle &node,char *sensorTopic);
     void init();
     void startTeaching();
     void stopTeaching();

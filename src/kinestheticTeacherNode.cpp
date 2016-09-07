@@ -19,7 +19,7 @@ using namespace std;
 using namespace arma;
 using namespace kukadu;
 using namespace UIBK_Teaching;
-std::shared_ptr<KinestheticTeacher> kTeacher;
+std::shared_ptr<KinestheticTeacherUIBK> kTeacher;
 
 int main(int argc, char** args){
 
@@ -28,7 +28,7 @@ int main(int argc, char** args){
     ros::AsyncSpinner spinner(7); spinner.start();
 
 
-    kTeacher= std::shared_ptr<KinestheticTeacher> (new KinestheticTeacher(node,(char*)SENSORTOPIC));
+    kTeacher= std::shared_ptr<KinestheticTeacherUIBK> (new KinestheticTeacherUIBK(node,(char*)SENSORTOPIC));
     kTeacher->init();
     cout << "apply some torques and forces for calibration" << endl;
     getchar();
